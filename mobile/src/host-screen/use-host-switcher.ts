@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { hostStackHostRoute } from '../navigation/host-stack-navigation'
+import { switchHostRoute } from '../host-route-exit'
 import { useRpcClientContext } from '../transport/client-context'
 import { loadHostCatalog } from '../transport/host-store'
 import type { ConnectionState, HostProfile } from '../transport/types'
 import { hostSwitcherHosts, hostSwitcherOptions } from './host-switcher-options'
 
-type HostSwitcherRouter = {
-  dismissTo: (href: '/') => void
-  push: (href: `/h/${string}`) => void
-}
+type HostSwitcherRouter = Parameters<typeof switchHostRoute>[0]
 
 export type HostSwitcher = ReturnType<typeof useHostSwitcher>
 
@@ -16,10 +13,11 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
   const ctx = useRpcClientContext()
   const [hosts, setHosts] = useState<HostProfile[]>([])
   const [visible, setVisible] = useState(false)
+  const [loadKey, setLoadKey] = useState(0)
   const [states, setStates] = useState<Record<string, ConnectionState>>({})
   const pickedRef = useRef<string | null>(null)
 
-  // Reload on open so a desktop paired or removed elsewhere shows up correctly.
+  // Load on mount for the trigger and again on each open, so a desktop paired or removed elsewhere shows up.
   useEffect(() => {
     let live = true
     void loadHostCatalog()
@@ -34,7 +32,7 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
     return () => {
       live = false
     }
-  }, [ctx, visible])
+  }, [ctx, loadKey])
 
   useEffect(() => {
     if (!visible) {
@@ -55,6 +53,7 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
 
   const open = useCallback(() => {
     pickedRef.current = null
+    setLoadKey((key) => key + 1)
     setVisible(true)
   }, [])
   const close = useCallback(() => setVisible(false), [])
@@ -62,16 +61,16 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
   const onAfterClose = useCallback(() => {
     const picked = pickedRef.current
     pickedRef.current = null
-    if (!picked || picked === currentHostId) {
+    // The list reloads while the sheet is open, so the pick may have been unpaired meanwhile.
+    if (!picked || picked === currentHostId || !hosts.some((host) => host.id === picked)) {
       return
     }
-    // Rebuild the stack as Home → host so Back returns home, not to the previous desktop.
-    router.dismissTo('/')
-    router.push(hostStackHostRoute(picked))
-  }, [currentHostId, router])
+    switchHostRoute(router, picked)
+  }, [currentHostId, hosts, router])
 
   return {
-    canSwitch: currentHostId !== undefined && hosts.length > 1,
+    // Count other desktops: the current one may itself have dropped out of the connectable list.
+    canSwitch: currentHostId !== undefined && hosts.some((host) => host.id !== currentHostId),
     open,
     pickerProps: {
       visible,

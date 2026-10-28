@@ -138,7 +138,8 @@ export function HostScreenHeader({ controller }: { controller: HostScreenControl
             </Text>
           ) : null}
         </HostIdentityFrame>
-        {hostSwitcher.canSwitch ? <HostSwitcherSheet switcher={hostSwitcher} /> : null}
+        {/* Stay mounted through the close animation: the pick is delivered after it ends. */}
+        <HostSwitcherSheet switcher={hostSwitcher} />
         {/* auth-failed has its own banner; the page cannot re-dial the connection the shell owns. */}
         {isConnectionOutage(connectionVerdict) && hostId && forceReconnectHost !== null ? (
           <Pressable
