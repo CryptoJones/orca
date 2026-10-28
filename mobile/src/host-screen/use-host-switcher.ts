@@ -4,7 +4,11 @@ import { holdSessionLeave } from '../session/session-leave-guard'
 import { useRpcClientContext } from '../transport/client-context'
 import { loadHostCatalog } from '../transport/host-store'
 import type { ConnectionState, HostProfile } from '../transport/types'
-import { hostSwitcherHosts, hostSwitcherOptions } from './host-switcher-options'
+import {
+  hasOtherSwitchableHost,
+  hostSwitcherHosts,
+  hostSwitcherOptions
+} from './host-switcher-options'
 
 type HostSwitcherRouter = Parameters<typeof switchHostRoute>[0]
 
@@ -102,8 +106,7 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
   }, [currentHostId, router])
 
   return {
-    // Count other desktops: the current one may itself have dropped out of the connectable list.
-    canSwitch: currentHostId !== undefined && hosts.some((host) => host.id !== currentHostId),
+    canSwitch: hasOtherSwitchableHost(hosts, currentHostId),
     open,
     pickerProps: {
       visible,

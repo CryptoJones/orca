@@ -91,7 +91,9 @@ async function pickThenClose(
     }
     switcher().pickerProps.onClose()
   })
-  await act(async () => switcher().pickerProps.onAfterClose())
+  await act(async () => {
+    switcher().pickerProps.onAfterClose()
+  })
 }
 
 function holdNextLoad(): () => void {
@@ -170,7 +172,9 @@ describe('useHostSwitcher', () => {
       mounted.switcher().pickerProps.onSelect('laptop')
       mounted.switcher().pickerProps.onClose()
     })
-    await act(async () => mounted.switcher().pickerProps.onAfterClose())
+    await act(async () => {
+      mounted.switcher().pickerProps.onAfterClose()
+    })
     expect(mounted.router.calls).toEqual([])
   })
 

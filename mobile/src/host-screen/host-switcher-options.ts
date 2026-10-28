@@ -17,6 +17,14 @@ export function hostSwitcherHosts(catalog: readonly HostCatalogEntry[]): HostPro
   return sortHostsByLastConnected(selectConnectableHostProfiles(catalog))
 }
 
+// Count other desktops: the current one may itself have dropped out of the connectable list.
+export function hasOtherSwitchableHost(
+  hosts: readonly HostProfile[],
+  currentHostId: string | undefined
+): boolean {
+  return currentHostId !== undefined && hosts.some((host) => host.id !== currentHostId)
+}
+
 export function hostSwitcherOptions(
   hosts: readonly HostProfile[],
   stateOf: (hostId: string) => ConnectionState
