@@ -6,6 +6,9 @@ import type { HostCatalogEntry } from '../transport/types'
 const doubles = vi.hoisted(() => ({
   catalog: [] as HostCatalogEntry[],
   loads: 0,
+  unreadable: false,
+  holdsLeave: false,
+  pendingLoad: null as Promise<void> | null,
   ctx: {
     primeHosts: () => {},
     getKnownState: () => 'connected' as const,
@@ -17,9 +20,17 @@ vi.mock('../transport/client-context', () => ({ useRpcClientContext: () => doubl
 vi.mock('../transport/host-store', () => ({
   loadHostCatalog: async () => {
     doubles.loads += 1
-    return doubles.catalog
+    const catalog = doubles.catalog
+    if (doubles.pendingLoad !== null) {
+      await doubles.pendingLoad
+    }
+    if (doubles.unreadable) {
+      throw new Error('keychain unavailable')
+    }
+    return catalog
   }
 }))
+vi.mock('../session/session-leave-guard', () => ({ holdSessionLeave: () => doubles.holdsLeave }))
 
 import { useHostSwitcher, type HostSwitcher } from './use-host-switcher'
 
@@ -53,16 +64,20 @@ async function mount(currentHostId: string) {
     latest.current = useHostSwitcher(currentHostId, routerApi)
     return null
   }
+  let renderer: ReturnType<typeof create> | null = null
   await act(async () => {
-    create(createElement(Probe))
+    renderer = create(createElement(Probe))
   })
+  const unmount = async () => {
+    await act(async () => renderer?.unmount())
+  }
   const switcher = () => {
     if (latest.current === null) {
       throw new Error('hook did not render')
     }
     return latest.current
   }
-  return { router, switcher }
+  return { router, switcher, unmount }
 }
 
 async function pickThenClose(
@@ -79,8 +94,33 @@ async function pickThenClose(
   await act(async () => switcher().pickerProps.onAfterClose())
 }
 
+function holdNextLoad(): () => void {
+  let finish = () => {}
+  doubles.pendingLoad = new Promise((resolve) => {
+    finish = resolve
+  })
+  return finish
+}
+
+async function pickAndCloseWithoutWaiting(
+  { switcher }: Awaited<ReturnType<typeof mount>>,
+  hostId: string
+): Promise<{ result: Promise<boolean> }> {
+  await act(async () => switcher().open())
+  let result: Promise<boolean> = Promise.resolve(false)
+  await act(async () => {
+    switcher().pickerProps.onSelect(hostId)
+    switcher().pickerProps.onClose()
+    result = switcher().pickerProps.onAfterClose()
+  })
+  return { result }
+}
+
 beforeEach(() => {
   doubles.loads = 0
+  doubles.unreadable = false
+  doubles.holdsLeave = false
+  doubles.pendingLoad = null
   doubles.catalog = [
     entry('studio', 10),
     entry('locked', 99, 'temporarily-unavailable'),
@@ -131,6 +171,60 @@ describe('useHostSwitcher', () => {
       mounted.switcher().pickerProps.onClose()
     })
     await act(async () => mounted.switcher().pickerProps.onAfterClose())
+    expect(mounted.router.calls).toEqual([])
+  })
+
+  it('waits for a slow reload on open, then opens a pick it still lists', async () => {
+    const mounted = await mount('studio')
+    const finishLoad = holdNextLoad()
+    const { result } = await pickAndCloseWithoutWaiting(mounted, 'laptop')
+    expect(mounted.router.calls).toEqual([])
+    await act(async () => finishLoad())
+    expect(await result).toBe(true)
+    expect(mounted.router.calls).toEqual(['dismissTo /', 'push /h/laptop'])
+  })
+
+  it('drops a pick the slow reload on open removes', async () => {
+    const mounted = await mount('studio')
+    const finishLoad = holdNextLoad()
+    doubles.catalog = [entry('studio', 10), entry('desk', 20)]
+    const { result } = await pickAndCloseWithoutWaiting(mounted, 'laptop')
+    await act(async () => finishLoad())
+    expect(await result).toBe(false)
+    expect(mounted.router.calls).toEqual([])
+  })
+
+  it('drops a waiting pick once the sheet is opened again', async () => {
+    const mounted = await mount('studio')
+    const finishLoad = holdNextLoad()
+    const { result } = await pickAndCloseWithoutWaiting(mounted, 'laptop')
+    await act(async () => mounted.switcher().open())
+    await act(async () => finishLoad())
+    expect(await result).toBe(false)
+    expect(mounted.router.calls).toEqual([])
+  })
+
+  it('drops a waiting pick once the switcher is gone', async () => {
+    const mounted = await mount('studio')
+    const finishLoad = holdNextLoad()
+    const { result } = await pickAndCloseWithoutWaiting(mounted, 'laptop')
+    await mounted.unmount()
+    await act(async () => finishLoad())
+    expect(await result).toBe(false)
+    expect(mounted.router.calls).toEqual([])
+  })
+
+  it('keeps the last list when the reload on open fails', async () => {
+    const mounted = await mount('studio')
+    doubles.unreadable = true
+    await pickThenClose(mounted, 'laptop')
+    expect(mounted.router.calls).toEqual(['dismissTo /', 'push /h/laptop'])
+  })
+
+  it('stays when the open session holds the leave, like the Back button', async () => {
+    const mounted = await mount('studio')
+    doubles.holdsLeave = true
+    await pickThenClose(mounted, 'laptop')
     expect(mounted.router.calls).toEqual([])
   })
 
