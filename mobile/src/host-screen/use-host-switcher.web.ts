@@ -12,7 +12,7 @@ const SHELL_OWNED_PICKER: HostSwitcher['pickerProps'] = {
   selected: '',
   onSelect: () => {},
   onClose: () => {},
-  onAfterClose: () => false
+  onAfterClose: async () => false
 }
 
 // The page knows only its own desktop: the shell says in init whether another exists, and opens its own sheet.

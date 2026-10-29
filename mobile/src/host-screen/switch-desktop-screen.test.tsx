@@ -8,7 +8,8 @@ const doubles = vi.hoisted(() => ({
   canGoBack: true,
   opens: 0,
   calls: [] as string[],
-  afterClose: null as (() => boolean) | null
+  afterClose: null as (() => Promise<boolean>) | null,
+  afterCloseResult: null as Promise<boolean> | null
 }))
 
 vi.mock('expo-router', () => ({
@@ -23,14 +24,14 @@ vi.mock('./use-host-switcher', () => ({
     canSwitch: true,
     loaded: doubles.loaded,
     open: openSwitcher,
-    pickerProps: { onAfterClose: () => doubles.switched }
+    pickerProps: { onAfterClose: async () => doubles.afterCloseResult ?? doubles.switched }
   })
 }))
 vi.mock('./host-switcher-sheet', () => ({
   HostSwitcherSheet: ({
     switcher
   }: {
-    switcher: { pickerProps: { onAfterClose: () => boolean } }
+    switcher: { pickerProps: { onAfterClose: () => Promise<boolean> } }
   }) => {
     doubles.afterClose = switcher.pickerProps.onAfterClose
     return null
@@ -55,7 +56,12 @@ async function mount() {
         renderer?.update(element())
       })
     },
-    close: () => doubles.afterClose?.()
+    unmount: async () => {
+      await act(async () => renderer?.unmount())
+    },
+    close: async () => {
+      await doubles.afterClose?.()
+    }
   }
 }
 
@@ -66,7 +72,8 @@ beforeEach(() => {
     canGoBack: true,
     opens: 0,
     calls: [],
-    afterClose: null
+    afterClose: null,
+    afterCloseResult: null
   })
 })
 
@@ -82,21 +89,35 @@ describe('the switch-desktop screen', () => {
 
   it('returns to the page when closed without a switch', async () => {
     const screen = await mount()
-    screen.close()
+    await screen.close()
     expect(doubles.calls).toEqual(['back'])
   })
 
   it('goes home when a link opened it with nothing beneath', async () => {
     doubles.canGoBack = false
     const screen = await mount()
-    screen.close()
+    await screen.close()
     expect(doubles.calls).toEqual(['dismissTo /'])
   })
 
   it('leaves navigation to the switch when one happened', async () => {
     doubles.switched = true
     const screen = await mount()
-    screen.close()
+    await screen.close()
+    expect(doubles.calls).toEqual([])
+  })
+
+  it('stays out of navigation when it is gone before the pick resolves', async () => {
+    let finish: (switched: boolean) => void = () => {}
+    const pending = new Promise<boolean>((resolve) => {
+      finish = resolve
+    })
+    doubles.afterCloseResult = pending
+    const screen = await mount()
+    const closing = screen.close()
+    await screen.unmount()
+    finish(false)
+    await closing
     expect(doubles.calls).toEqual([])
   })
 })
