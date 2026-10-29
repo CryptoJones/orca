@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import type { RouteHandoff } from '../navigation/route-handoff'
+import { holdSessionLeave } from '../session/session-leave-guard'
 import { usePageBridgeClientIfPresent } from '../transport/client-context.web'
 import { switchDesktopRoute } from './switch-desktop-route'
 import type { HostSwitcher } from './use-host-switcher'
@@ -23,7 +24,8 @@ export function useHostSwitcher(
   // Older shells omit the fact; without navigate the shell would refuse the hop.
   const offered = session?.hostSwitcher === true && session.grants.native.includes('navigate')
   const open = useCallback(() => {
-    if (currentHostId !== undefined) {
+    // The shell's sheet cannot reach this page's session, so ask its hold before leaving for it.
+    if (currentHostId !== undefined && !holdSessionLeave()) {
       router.push(switchDesktopRoute(currentHostId))
     }
   }, [currentHostId, router])

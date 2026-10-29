@@ -4,12 +4,14 @@ import { describe, expect, it, vi } from 'vitest'
 
 const doubles = vi.hoisted(() => ({
   session: null as { hostSwitcher: boolean; grants: { native: string[] } } | null,
-  pushed: [] as string[]
+  pushed: [] as string[],
+  holdsLeave: false
 }))
 
 vi.mock('../transport/client-context.web', () => ({
   usePageBridgeClientIfPresent: () => ({ getShellSession: () => doubles.session })
 }))
+vi.mock('../session/session-leave-guard', () => ({ holdSessionLeave: () => doubles.holdsLeave }))
 import type { RouteHandoff } from '../navigation/route-handoff'
 import type { HostSwitcher } from './use-host-switcher'
 import { useHostSwitcher } from './use-host-switcher.web'
@@ -55,5 +57,14 @@ describe("the page's desktop switcher", () => {
     expect(switcher.canSwitch).toBe(true)
     switcher.open()
     expect(doubles.pushed).toEqual(['/switch-desktop?from=wt%2F1'])
+  })
+
+  it('stays on the page when its open session holds the leave', async () => {
+    doubles.session = { hostSwitcher: true, grants: { native: ['navigate'] } }
+    doubles.pushed = []
+    doubles.holdsLeave = true
+    ;(await mount('studio')).open()
+    doubles.holdsLeave = false
+    expect(doubles.pushed).toEqual([])
   })
 })
