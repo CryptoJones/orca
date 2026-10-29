@@ -55,6 +55,7 @@ function HostIdentityFrame({
   onSwitch: (() => void) | null
   title: string
 }) {
+  const t = useMobileTranslation()
   if (!onSwitch) {
     return <View style={styles.hostIdentity}>{children}</View>
   }
@@ -63,7 +64,11 @@ function HostIdentityFrame({
       style={styles.hostIdentity}
       onPress={onSwitch}
       accessibilityRole="button"
-      accessibilityLabel={`Switch desktop, current: ${title}`}
+      accessibilityLabel={t(
+        'hostScreen.hostScreenHeader.switchDesktop',
+        'Switch desktop, current: {{title}}',
+        { title }
+      )}
       hitSlop={8}
     >
       {children}

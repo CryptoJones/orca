@@ -1418,6 +1418,7 @@
       "hideSidebar": "Ocultar barra lateral",
       "reconnect": "Reconectar",
       "searchWorkspaces": "Buscar espaços de trabalho",
+      "switchDesktop": "Trocar de desktop, atual: {{title}}",
       "tasks": "Tarefas",
       "workspaceOptions": "Opções do espaço de trabalho"
     },
@@ -1430,6 +1431,9 @@
       "removeHostMessage": "Remover \"{{name}}\"? Você pode parear novamente mais tarde.",
       "sleep": "Suspender",
       "unpin": "Desafixar"
+    },
+    "hostSwitcherSheet": {
+      "title": "Trocar de desktop"
     },
     "hostWorkspaceList": {
       "searchPlaceholder": "Buscar espaços de trabalho…",
