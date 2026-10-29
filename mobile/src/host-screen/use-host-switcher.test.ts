@@ -237,4 +237,11 @@ describe('useHostSwitcher', () => {
     await pickThenClose(mounted, null)
     expect(doubles.loads).toBe(2)
   })
+
+  it('reports the list as loaded even when it cannot be read, so its screen still opens', async () => {
+    doubles.unreadable = true
+    const { switcher } = await mount('studio')
+    expect(switcher().loaded).toBe(true)
+    expect(switcher().canSwitch).toBe(false)
+  })
 })

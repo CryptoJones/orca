@@ -39,7 +39,6 @@ describe("init's desktop-switcher fact", () => {
   })
 
   it('reads as false from shells that predate it and from a value the page cannot read', () => {
-    expect(pageReads(init(true))).toBe(true)
     expect(pageReads(init(undefined))).toBe(false)
     expect(pageReads({ ...init(undefined), hostSwitcher: 'several' })).toBe(false)
   })

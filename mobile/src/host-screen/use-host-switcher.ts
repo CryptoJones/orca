@@ -19,6 +19,7 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
   const [hosts, setHosts] = useState<HostProfile[]>([])
   const [visible, setVisible] = useState(false)
   const [loadKey, setLoadKey] = useState(0)
+  const [loaded, setLoaded] = useState(false)
   const [states, setStates] = useState<Record<string, ConnectionState>>({})
   const pickedRef = useRef<string | null>(null)
   // Last list that loaded, and the newest load to wait for before trusting it.
@@ -51,6 +52,11 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
         () => {}
       )
       .catch(() => {})
+      .finally(() => {
+        if (live) {
+          setLoaded(true)
+        }
+      })
     return () => {
       live = false
     }
@@ -107,6 +113,7 @@ export function useHostSwitcher(currentHostId: string | undefined, router: HostS
 
   return {
     canSwitch: hasOtherSwitchableHost(hosts, currentHostId),
+    loaded,
     open,
     pickerProps: {
       visible,

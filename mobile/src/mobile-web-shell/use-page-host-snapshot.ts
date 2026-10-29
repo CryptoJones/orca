@@ -19,7 +19,7 @@ import {
 
 export type PageHostSnapshot = {
   host: BridgeInitHost
-  // Another desktop the shell's switcher could open; read with the profile so init carries both.
+  // Another desktop the shell's switcher could open, read with the profile when the host page mounts.
   hostSwitcher?: boolean
 }
 
